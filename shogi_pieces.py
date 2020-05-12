@@ -1,9 +1,9 @@
 class Pieces:
     def __init__(self,position,team):
         self.position = position
-        self.graphic = "-"
-        self.promotedGraphic = "-"
         self.team = team
+        self.graphic = "-"
+        self.promotedGraphic = self.set_graphic()
         self.isPromoted = False
         self.set_graphic()
     name = "Template"
@@ -106,4 +106,34 @@ class Rook(Pieces):
     def moves(self,game):
         return self.move_limits([(1,0),(0,1),(-1,0),(0,-1)],game) if not self.isPromoted else self.move_limits([(1,0),(0,1),(-1,0),(0,-1)],game) + [(-1,-1),(-1,1),(1,-1),(1,1)]
 
-
+class Lance(Pieces):
+    def name(self):
+        return "Lance" if not self.isPromoted else "Narilance"
+    def set_graphic(self):
+        if self.team == "white":
+            self.graphic = "l"
+            self.promotedGraphic = "n"
+        elif self.team == "black":
+            self.graphic = "L"
+            self.promotedGraphic = "N"
+    def moves(self,occupied_positions):
+        if self.team == "black":
+            return self.move_limits([0,-1],game) if not self.isPromoted else [(0,-1),(-1,-1),(1,-1),(-1,0),(1,0),(0,1)]
+        elif self.team == "white":
+            return self.move_limits([0,1],game) if not self.isPromoted else [(0,1),(-1,1),(1,1),(-1,0),(1,0),(0,-1)]
+        
+class Knight(Pieces):
+    def name(self):
+        return "Knight" if not self.isPromoted else "Nariknight"
+    def set_graphic(self):
+        if self.team == "white":
+            self.graphic = "k"
+            self.promotedGraphic = "n"
+        elif self.team == "black":
+            self.graphic = "K"
+            self.promotedGraphic = "N"
+    def moves(self,game):
+        if self.team == "black":
+            return [(1,-2),(-1,-2)] if not self.isPromoted else [(0,-1),(-1,-1),(1,-1),(-1,0),(1,0),(0,1)]
+        elif self.team == "white":
+            return [(1,2),(-1,2)] if not self.isPromoted else [(0,1),(-1,1),(1,1),(-1,0),(1,0),(0,-1)]

@@ -5,11 +5,13 @@ import shogibot_token
 import shogi_pieces
 
 class Player:
-    def __init__(self,who,hand,team,threat):
+    def __init__(self,who,hand,team,id):
         self.who = who
+        self.id = id
         self.hand = hand
         self.team = team
-        self.threat = threat
+        self.threat = False
+        
 
         
 class Game:
@@ -25,9 +27,10 @@ class Game:
         to_send = ""
         to_send += "Initialising\n"        
         self.turn = 'black'
-        self.player1 = Player('human',[],'black','no')
-        self.player2 = Player('computer',[],'white','no')
+        self.player1 = Player('vacant',[],'black','')
+        self.player2 = Player('vacant',[],'white','')
         self.player_list = [self.player1,self.player2]
+        self.playermap = {'black':self.player1,'white':self.player2}
 
         self.black_gold = shogi_pieces.Gold((1,4),'black')
         self.black_silver = shogi_pieces.Silver((2,4),'black')
@@ -205,10 +208,11 @@ class Game:
             if piece.team == 'white':
                 my_pieces.append(piece)
         my_active_piece = my_pieces[random.randint(0,len(my_pieces))]
-    
+          
 
 
-bot = commands.Bot(command_prefix='!')
+bot = commands.Bot(command_prefix='!',description="A bot to play shogi with on discord. Currently lets you play minishogi.")
+games = {}
 
 @bot.event
 async def on_ready():
@@ -218,14 +222,17 @@ async def on_ready():
 
 @bot.command(name='new-game',help='make a game')
 async def initialise(ctx):
-    global game 
-    game = Game(ctx)
-    await ctx.send(game.draw_board())
+    games[ctx.channel.id] = Game(ctx)
+    await ctx.send(games[ctx.channel.id].draw_board())
 @bot.command(name='move',help='follow this command with a move')
 async def make_move(ctx,move):
-    global game
-    game.check_for_threat()
-    game.occupy_positions()
+    #global games
+    print(games)
+    if ctx.author.id != games[ctx.channel.id].player1.id and ctx.author.id != games[ctx.channel.id].player2.id:
+        await ctx.send("You are not a player in the game!")
+        return None
+    games[ctx.channel.id].check_for_threat()
+    games[ctx.channel.id].occupy_positions()
     if re.search("^[fkgsbrFKGSBRnNtTdDhH](\d\d|\d\d\d\d)p?$",move):
         shuffle = [4,3,2,1,0]
         if len(move) <= 4:
@@ -234,52 +241,67 @@ async def make_move(ctx,move):
         elif len(move) >= 5:
             horizontal = shuffle[int(move[3])-1]
             vertical = int(move[4])-1        
-        active_piece = game.get_piece(move,horizontal,vertical)
+        active_piece = games[ctx.channel.id].get_piece(move,horizontal,vertical)
         if active_piece:
-            last_pos = active_piece.position
-            if active_piece.team == game.turn: 
-                if not game.enact_move(active_piece, (horizontal,vertical)): 
-                    message = game.check_take_piece(active_piece)
+            if games[ctx.channel.id].playermap[games[ctx.channel.id].turn].id != ctx.author.id:
+                await ctx.send("It isn't your turn!")
+                return None
+            last_pos = active_piece.position #so we can promote when we leave the row, not just enter it
+            if active_piece.team == games[ctx.channel.id].turn: 
+                if not games[ctx.channel.id].enact_move(active_piece, (horizontal,vertical)): 
+                    message = games[ctx.channel.id].check_take_piece(active_piece)
                     if message: await ctx.send(message)
                     if move[-1] == 'p': await ctx.send(game.promote(active_piece,last_pos))
-                    game.change_turn()
-                else: await ctx.send(game.enact_move(active_piece, (horizontal,vertical)))
+                    games[ctx.channel.id].change_turn()
+                else: await ctx.send(games[ctx.channel.id].enact_move(active_piece, (horizontal,vertical)))
             else:
                 await ctx.send("That piece does not match the current turn!")
         else:
             await ctx.send("Illegal move; no valid path\n")
         if type(active_piece) == shogi_pieces.Fu: 
-            message = game.autopromotion_protocol(active_piece)
+            message = games[ctx.channel.id].autopromotion_protocol(active_piece)
             if message: await ctx.send(message)
     elif re.search("d[fgsrbFSGRB]\d\d",move):
-        playermap = {'black':game.player1,'white':game.player2}
         dropped = False
-        for piece in playermap[game.turn].hand:
+        for piece in games[ctx.channel.id].playermap[games[ctx.channel.id].turn].hand:
             if move[1] == piece.graphic:
-                message = game.drop_piece(move,piece)
+                message = games[ctx.channel.id].drop_piece(move,piece)
                 if message == "dropped":
-                    playermap[game.turn].hand.remove(piece)
+                    games[ctx.channel.id].playermap[games[ctx.channel.id].turn].hand.remove(piece)
                     dropped = True
-                    game.change_turn()
+                    games[ctx.channel.id].change_turn()
                     break
                 else:
                     await ctx.send(message)
         if not dropped: await ctx.send("You do not have a piece to drop/made an illegal drop")
-    if game.persistent_board: await ctx.send(game.draw_board())
-    game.check_for_threat()
-    if game.warn_check(): await ctx.send(game.warn_check())
+    if games[ctx.channel.id].persistent_board: await ctx.send(games[ctx.channel.id].draw_board())
+    games[ctx.channel.id].check_for_threat()
+    if games[ctx.channel.id].warn_check(): await ctx.send(games[ctx.channel.id].warn_check())
     
 @bot.command(name='show-board',help='show the board')
 async def draw_table(ctx):
-    await ctx.send(game.draw_board())
+    await ctx.send(games[ctx.channel.id].draw_board())
 @bot.command(name='persistent-board',help='Whether to print the board every move or not')
 async def persistent_board(ctx):
-    global game
-    game.persistent_board = True if not game.persistent_board else False
+    games[ctx.channel.id].persistent_board = True if not games[ctx.channel.id].persistent_board else False
+    
+@bot.command(name='players',help='show players in the current game')
+async def show_players(ctx):
+    await ctx.send("Black is: "+games[ctx.channel.id].player1.who+"\nWhite is: "+games[ctx.channel.id].player2.who)
+@bot.command(name='register',help='Make you a player in the game')
+async def register_player(ctx):
+    if ctx.guild == None: games[ctx.channel.id].player2.who = 'computer'
+    for player in games[ctx.channel.id].player_list:
+        if player.who == 'vacant':
+            player.who = ctx.author.display_name
+            player.id = ctx.author.id
+            await ctx.send("Registered as "+player.team+" player!")
+            return
+    await ctx.send("The game is full")
     
 @bot.command(name='rules',help='display the rules')
 async def get_help(ctx):
-        ctx.send("Moves are made in format piece, horizontal and then vertical (you can also specify where from if needed). eg white silver to column 3 row 2 would be s32.\nYou cannot drop a pawn in the same row as another pawn, nor can you drop it in the promotion row. The final row is the promotion row, and you can promote moving in or out. \n")
+    await ctx.send("Moves are made in format piece, horizontal and then vertical (you can also specify where from if needed). eg white silver to column 3 row 2 would be s32.\nYou cannot drop a pawn in the same row as another pawn, nor can you drop it in the promotion row. The final row is the promotion row, and you can promote moving in or out.\nk - 王\ng - 金\ns - 銀  n - 成金\nb - 角  h ‐ 竜馬\nr - 車  d ‐ 竜王\nf ‐ 歩  t ‐ と金")
         
         #elif move.lower() == "exit":
         #game.playing = 0
