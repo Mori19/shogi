@@ -99,7 +99,7 @@ class Game:
             save_state[save_piece] = [save_piece.position,save_piece.team,save_piece.isPromoted]
         save_hand = [self.player1.hand.copy(),self.player2.hand.copy()]
         try: 
-            print(save_hand)    #this is literally fucked and I have no idea why
+            print(save_hand)
         except:
             print("She's cooked boss")
         piece.position = new_position
