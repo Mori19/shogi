@@ -50,7 +50,18 @@ class Game:
         self.white_rook = shogi_pieces.Rook((0,0),'white')
         self.white_bishop = shogi_pieces.Bishop((1,0),'white')
 
-        self.piece_list = [self.black_gold,self.white_gold,self.white_king,self.white_fu,self.white_rook,self.white_bishop,self.white_silver,self.black_silver,self.black_fu,self.black_king,self.black_rook,self.black_bishop]
+        self.piece_list = [self.black_gold,
+                           self.white_gold,
+                           self.white_king,
+                           self.white_fu,
+                           self.white_rook,
+                           self.white_bishop,
+                           self.white_silver,
+                           self.black_silver,
+                           self.black_fu,
+                           self.black_king,
+                           self.black_rook,
+                           self.black_bishop]
         
     def occupy_positions(self):
         self.occupied_positions = []
@@ -58,19 +69,26 @@ class Game:
             self.occupied_positions.append(piece.position)
 
     def draw_board(self):
-        board = [['','','','',''],['','','','',''],['','','','',''],['','','','',''],['','','','','']]
+        board = [['','','','',''],
+                 ['','','','',''],
+                 ['','','','',''],
+                 ['','','','',''],
+                 ['','','','','']]
         to_send = ""
-        to_send += "The turn is: " +self.turn+"\nWhite hand: "+str(list(map(lambda a:a.graphic,self.player2.hand)))+"\n\n`{:^3} {:^3} {:^3} {:^3} {:^3}`\n".format('5','4','3','2','1')
+        to_send += "The turn is: {}\nWhite hand: {}\n\
+        \n`{:^3} {:^3} {:^3} {:^3} {:^3}`\n".format(self.turn,
+        str(list(map(lambda a:a.graphic,self.player2.hand))),
+        '5','4','3','2','1')
         for piece in self.piece_list:
-            if piece.position != (7,7): board[piece.position[1]][piece.position[0]] = piece.graphic
+            if piece.position != (7,7): 
+                board[piece.position[1]][piece.position[0]] = piece.graphic
         row_content = ""
         for number, row in enumerate(board,1):
-            to_send+='`{:_^3}|{:_^3}|{:_^3}|{:_^3}|{:_^3}{:^3}`'.format(*row,str(number))
-            #for column in row:
-            #    row_content+='\t' if column == '' else ' '+column+'\t'
-            #row_content+="\t"+str(number)+"\n"
+            to_send+='`{:_^3}|{:_^3}|{:_^3}|\
+{:_^3}|{:_^3}{:^3}`'.format(*row,str(number))
             to_send += "\n"
-        to_send+= "Black hand: "+str(list(map(lambda a:a.graphic,self.player1.hand)))+"\n"
+        to_send+= "Black hand: {}\n".format(str(list(
+            map(lambda a:a.graphic,self.player1.hand))))
         return to_send
 
 
@@ -82,32 +100,43 @@ class Game:
             self.turn = 'black'
 
     def promote(self,piece,last_pos = (3,3)):
-        if (piece.position not in piece.promotion_row()) and (last_pos not in piece.promotion_row()):
+        if (piece.position not in piece.promotion_row())\
+        and (last_pos not in piece.promotion_row()):
             return "you are not in a promotion row\n"
         piece.isPromoted = True
         piece.graphic = piece.promotedGraphic
         return "Promoted!\n"
 
-    def check_rules(self,piece,position,new_position): #if the move is in the list of approved moves for the piece, and if the move does not put the piece out of bounds
-        if tuple(map(lambda a,b:a-b,new_position, position)) in piece.moves(self.occupied_positions) and False not in tuple(map(lambda a : a>=0, list(map(lambda a,b : b-a, new_position, (4,4))))):
+    def check_rules(self,piece,position,new_position):
+        if tuple(map(lambda a,b:a-b,new_position, position))\
+        in piece.moves(self.occupied_positions)\
+        and False not in tuple(map(lambda a : a>=0, 
+                                   list(map(lambda a,b : b-a, new_position, (4,4))))):
             for other_piece in self.piece_list:
-                if other_piece.position == new_position and other_piece.team == piece.team and other_piece != piece:
+                if other_piece.position == new_position\
+                and other_piece.team == piece.team\
+                and other_piece != piece:
                     print("moving onto self")
                     return "A piece on your team is already there"
             return self.hypothesis_move_and_check_for_check(piece,new_position)
         else:
             print("illegal move")
-            return "Illegal move; it could be out of bounds or not in the piece movelist"
+            return "Illegal move; it could be out of bounds\
+                    or not in the piece movelist"
 
     def hypothesis_move_and_check_for_check(self,piece,new_position):
         save_state = {}
         for save_piece in self.piece_list:
-            save_state[save_piece] = [save_piece.position,save_piece.team,save_piece.isPromoted]
-        save_hand = [self.player1.hand.copy(),self.player2.hand.copy()]
+            save_state[save_piece] = [save_piece.position,
+                                      save_piece.team,
+                                      save_piece.isPromoted]
+        save_hand = [self.player1.hand.copy(),
+                     self.player2.hand.copy()]
         piece.position = new_position
         print(self.check_take_piece(piece))
         self.check_for_threat()
-        if piece.team == "black" and self.player1.threat or piece.team == "white" and self.player2.threat: 
+        if piece.team == "black" and self.player1.threat\
+        or piece.team == "white" and self.player2.threat: 
             self.restore_save(save_state,save_hand)
             print("restore save - bad move")
             return "You can't check yourself!"
@@ -150,9 +179,12 @@ class Game:
                 return "You cannot drop onto another piece.\n"
         if type(active_piece) == shogi_pieces.Fu:
             if (horizontal,vertical) in active_piece.promotion_row():
-                return "You cannot drop "+str(active_piece)+" in the promotion row"
+                return "You cannot drop {} in the promotion row".format(str(active_piece))
             for piece in self.piece_list:
-                if type(piece) == shogi_pieces.Fu and piece.position[0] == horizontal and not active_piece.isPromoted and active_piece.team == self.turn:
+                if type(piece) == shogi_pieces.Fu and\
+                piece.position[0] == horizontal\
+                and not active_piece.isPromoted\
+                and active_piece.team == self.turn:
                     return "You cannot stack this piece (only one per column)"
         active_piece.position = (horizontal,vertical)
         return "dropped"
@@ -175,7 +207,10 @@ class Game:
         if len(move) == 3 or len(move) == 4:
             for piece in self.piece_list:
                 if piece.graphic == move[0]:
-                    if tuple(map(lambda a,b:a-b,(horizontal,vertical), piece.position)) in piece.moves(self.occupied_positions):
+                    if tuple(map(lambda a,b:a-b,
+                                 (horizontal,vertical),
+                                 piece.position))\
+                    in piece.moves(self.occupied_positions):
                         return piece
         elif len(move) == 5 or len(move) == 6:
             shuffle = [4,3,2,1,0]
@@ -190,9 +225,13 @@ class Game:
         self.player2.threat = False
         for piece in self.piece_list:
             for move in piece.moves(self.occupied_positions):
-                if piece.team == "black" and self.white_king.position == tuple(map(lambda a,b:a+b,piece.position,move)):
+                if piece.team == "black"\
+                and self.white_king.position == tuple(map(lambda a,b:a+b,
+                                                          piece.position,move)):
                     self.player2.threat = True
-                elif piece.team == "white" and self.black_king.position == tuple(map(lambda a,b:a+b,piece.position,move)):
+                elif piece.team == "white"\
+                and self.black_king.position == tuple(map(lambda a,b:a+b,
+                                                          piece.position,move)):
                     self.player1.threat = True
                     
     def warn_check(self):
@@ -206,7 +245,9 @@ class Game:
 
 
     def computer_moves():
-        #randomly select a piece, randomly select a legal move, and format a string that we can work with
+        #randomly select a piece, 
+        #randomly select a legal move, 
+        #and format a string that we can work with
         my_pieces = []
         for piece in piece_list: #get what pieces we can work with
             if piece.team == 'white':
@@ -222,7 +263,9 @@ def check_for_checkmate(ctx,game):
             print(piece)
             for move in piece.moves(game.occupied_positions):
                 print(f'the move to check is {move}')
-                if not game.enact_move(piece,tuple(map(lambda a,b:a+b,piece.position,move))):
+                if not game.enact_move(piece,tuple(map(lambda a,b:a+b,
+                                                       piece.position,
+                                                       move))):
                     games[ctx.channel.id] = pickle.loads(save_state)
                     print("pickle loaded")
                     return False
@@ -236,16 +279,39 @@ class Person:
         self.wins = 0
         self.loss = 0
         
+def update_scoreboard(ctx):
+    if games[ctx.channel.id].player1.id not in people.keys():
+        people[games[ctx.channel.id].player1.id] = Person(games[ctx.channel.id].player1.id,
+                                                          games[ctx.channel.id].player1.who)
+    if games[ctx.channel.id].player2.id not in people.keys():
+        people[games[ctx.channel.id].player2.id] = Person(games[ctx.channel.id].player2.id,
+                                                          games[ctx.channel.id].player2.who)
+    if games[ctx.channel.id].turn == "black":
+        people[games[ctx.channel.id].player1.id].loss +=1
+        people[games[ctx.channel.id].player2.id].wins +=1
+    else:
+        people[games[ctx.channel.id].player1.id].wins +=1
+        people[games[ctx.channel.id].player2.id].loss +=1
+    with open('save_scoreboard.pickle','wb') as save_file:
+        pickle.dump(people,save_file)
         
-
-bot = commands.Bot(command_prefix='!',description="A bot to play shogi with on discord. Currently lets you play minishogi.")
-games = {}
 people = {}
+bot = commands.Bot(command_prefix='!',
+                   description="A bot to play shogi with on discord.\
+                   Currently lets you play minishogi.")
+games = {}
+
 
 @bot.event
 async def on_ready():
+    global people
     print(f'{bot.user.name} has connected to Discord!')
     await bot.change_presence(activity=discord.Game(name="Shogi"))
+    try:
+        with open('save_scoreboard.pickle','rb') as save_file:
+            people = pickle.load(save_file)
+    except:
+        print("No saved scoreboard file found!")
     #status=discord.Status.idle
 
 @bot.command(name='new-game',help='make a game')
@@ -255,9 +321,12 @@ async def initialise(ctx):
 @bot.command(name='move',help='follow this command with a move')
 async def make_move(ctx,move):
     #global games
-    #print(games[ctx.channel.id].__dict__)
+    if not games[ctx.channel.id].playing:
+        await ctx.send("The game is over")
+        return False
     print(games)
-    if ctx.author.id != games[ctx.channel.id].player1.id and ctx.author.id != games[ctx.channel.id].player2.id:
+    if ctx.author.id != games[ctx.channel.id].player1.id\
+    and ctx.author.id != games[ctx.channel.id].player2.id:
         await ctx.send("You are not a player in the game!")
         return None
     games[ctx.channel.id].check_for_threat()
@@ -270,21 +339,28 @@ async def make_move(ctx,move):
         elif len(move) >= 5:
             horizontal = shuffle[int(move[3])-1]
             vertical = int(move[4])-1        
-        active_piece = games[ctx.channel.id].get_piece(move,horizontal,vertical)
+        active_piece = games[ctx.channel.id].get_piece(move,
+                                                       horizontal,
+                                                       vertical)
         if active_piece:
             if games[ctx.channel.id].playermap[games[ctx.channel.id].turn].id != ctx.author.id:
                 await ctx.send("It isn't your turn!")
                 return None
-            last_pos = active_piece.position #so we can promote when we leave the row, not just enter it
+            last_pos = active_piece.position #so we can promote
+                                             # when we leave the row, not just enter it
             if active_piece.team == games[ctx.channel.id].turn: 
-                if not games[ctx.channel.id].enact_move(active_piece, (horizontal,vertical)): 
+                if not games[ctx.channel.id].enact_move(active_piece,
+                                                        (horizontal,vertical)): 
                     message = games[ctx.channel.id].check_take_piece(active_piece)
                     if message: await ctx.send(message)
-                    if move[-1] == 'p': await ctx.send(games[ctx.channel.id].promote(active_piece,last_pos))
+                    if move[-1] == 'p': await ctx.send(
+                        games[ctx.channel.id].promote(active_piece,last_pos))
                     games[ctx.channel.id].change_turn()
-                else: await ctx.send(games[ctx.channel.id].enact_move(active_piece, (horizontal,vertical)))
+                else: await ctx.send(games[ctx.channel.id].enact_move(
+                    active_piece, (horizontal,vertical)))
             else:
-                await ctx.send("That piece does not match the current turn!")
+                await ctx.send("That piece does not\
+                               match the current turn!")
         else:
             await ctx.send("Illegal move; no valid path\n")
         if type(active_piece) == shogi_pieces.Fu: 
@@ -310,14 +386,8 @@ async def make_move(ctx,move):
         message = check_for_checkmate(ctx,games[ctx.channel.id])
         if message: 
             await ctx.send(message)
-            if games[ctx.channel.id].player1.id not in people.keys(): people[games[ctx.channel.id].player1.id] = Person(games[ctx.channel.id].player1.id,games[ctx.channel.id].player1.who)
-            if games[ctx.channel.id].player2.id not in people.keys(): people[games[ctx.channel.id].player2.id] = Person(games[ctx.channel.id].player2.id,games[ctx.channel.id].player2.who)
-            if games[ctx.channel.id].turn == "black":
-                people[games[ctx.channel.id].player1.id].loss +=1
-                people[games[ctx.channel.id].player2.id].wins +=1
-            else:
-                people[games[ctx.channel.id].player1.id].wins +=1
-                people[games[ctx.channel.id].player2.id].loss +=1
+            update_scoreboard(ctx)
+            games[ctx.channel.id].playing = False
     
 @bot.command(name='show-board',help='show the board')
 async def draw_table(ctx):
@@ -328,7 +398,8 @@ async def persistent_board(ctx):
     
 @bot.command(name='players',help='show players in the current game')
 async def show_players(ctx):
-    await ctx.send("Black is: "+games[ctx.channel.id].player1.who+"\nWhite is: "+games[ctx.channel.id].player2.who)
+    await ctx.send(f"Black is: {+games[ctx.channel.id].player1.who}
+                   \nWhite is: {games[ctx.channel.id].player2.who}")
 @bot.command(name='register',help='Make you a player in the game')
 async def register_player(ctx):
     if ctx.guild == None: games[ctx.channel.id].player2.who = 'computer'
@@ -336,7 +407,7 @@ async def register_player(ctx):
         if player.who == 'vacant':
             player.who = ctx.author.display_name
             player.id = ctx.author.id
-            await ctx.send("Registered as "+player.team+" player!")
+            await ctx.send(f"Registered as {player.team} player!")
             return
     await ctx.send("The game is full")
     
@@ -348,19 +419,26 @@ async def show_scores(ctx):
     to_send = "`SCOREBOARD:\n"
     to_send += "{:<11}{:<5}{:<5}\n".format("Player","Wins","Loss")
     for person in people.values():
-        to_send += '{:<15} {:>3} {:>3}\n'.format(person.name,person.wins,person.loss)
+        to_send += '{:<11} {:>5} {:>5}\n'.format(person.name,person.wins,person.loss)
     to_send+='`'
     await ctx.send(to_send)
+    
+@bot.command(name='resign',help='forfeit the current game')
+async def forfeit_game(ctx):
+    if games[ctx.channel.id].playermap[games[ctx.channel.id].turn].id != ctx.author.id:
+        await ctx.send("You have resigned!")
+        update_scoreboard(ctx)
+    else:
+        await ctx.send("It isn't your turn")
 
 @bot.command(name='rules',help='display the rules')
 async def get_help(ctx):
-    await ctx.send("Moves are made in format piece, horizontal and then vertical (you can also specify where from if needed). eg white silver to column 3 row 2 would be s32.\nYou cannot drop a pawn in the same row as another pawn, nor can you drop it in the promotion row. The final row is the promotion row, and you can promote moving in or out.\nk - 王\ng - 金\ns - 銀  n - 成金\nb - 角  h ‐ 竜馬\nr - 車  d ‐ 竜王\nf ‐ 歩  t ‐ と金")
-        
-        #elif move.lower() == "exit":
-        #game.playing = 0
-        
-    #elif move.lower() == 'restart':
-     #   game.setup()
+    await ctx.send("Moves are made in format piece, horizontal and then vertical\
+    (you can also specify where from if needed). eg white silver to column 3 row\
+    2 would be s32.\nYou cannot drop a pawn in the same row as another pawn, nor\
+    can you drop it in the promotion row. The final row is the promotion row, and\
+    you can promote moving in or out.\nk - 王\ng - 金\ns - 銀  n - 成金\nb - 角  h\
+    ‐ 竜馬\nr - 車  d ‐ 竜王\nf ‐ 歩  t ‐ と金")
     
 bot.run(shogibot_token.TOKEN)
 
