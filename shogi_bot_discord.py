@@ -18,10 +18,11 @@ class Player:
         return "A player of a game of shogi"      
 
 class Game:
-    def __init__(self):
+    def __init__(self,mode):
+        self.mode = mode
         self.playing = 1
-        self.setup()
-        self.occupy_positions()
+        self.setup(self.mode)
+        self.occupy_positions(self.mode)
         self.persistent_board = False
         
     def __repr__(self):
@@ -29,7 +30,7 @@ class Game:
     def __str__(self):
         return "A game of Shogi"
         
-    def setup(self): 
+    def setup(self,mode): 
         self.turn = 'black'
         self.player1 = Player('vacant',[],'black','')
         self.player2 = Player('vacant',[],'white','')
@@ -63,7 +64,7 @@ class Game:
                            self.black_rook,
                            self.black_bishop]
         
-    def occupy_positions(self):
+    def occupy_positions(self,mode):
         self.occupied_positions = []
         for piece in self.piece_list:
             self.occupied_positions.append(piece.position)
@@ -301,7 +302,6 @@ bot = commands.Bot(command_prefix='!',
                    Currently lets you play minishogi.")
 games = {}
 
-
 @bot.event
 async def on_ready():
     global people
@@ -315,14 +315,31 @@ async def on_ready():
     #status=discord.Status.idle
 
 @bot.command(name='new-game',help='make a game')
-async def initialise(ctx):
-    games[ctx.channel.id] = Game()
+async def initialise(ctx,game_type = 'mini'):
+    games[ctx.channel.id] = Game(game_type)
     await ctx.send(games[ctx.channel.id].draw_board())
+    
+def turn_end(ctx,game):
+    to_say = []
+    if game.persistent_board: to_say.append(game.draw_board())
+    game.check_for_threat()
+    if game.warn_check(): 
+        to_say.append(game.warn_check())
+        message = check_for_checkmate(ctx,game)
+        if message: 
+            to_send.append(message)
+            update_scoreboard(ctx)
+            game.playing = False
+    return '\n'.join(to_say)
+
 @bot.command(name='move',help='follow this command with a move')
 async def make_move(ctx,move):
-    #global games
-    if not games[ctx.channel.id].playing:
-        await ctx.send("The game is over")
+    try:
+        if not games[ctx.channel.id].playing:
+            await ctx.send("The game is over")
+            return False
+    except:
+        await ctx.send("No current game")
         return False
     print(games)
     if ctx.author.id != games[ctx.channel.id].player1.id\
@@ -353,7 +370,7 @@ async def make_move(ctx,move):
                                                         (horizontal,vertical)): 
                     message = games[ctx.channel.id].check_take_piece(active_piece)
                     if message: await ctx.send(message)
-                    if move[-1] == 'p': await ctx.send(
+                    if move[-1] == 'p' or move[-1] == '+': await ctx.send(
                         games[ctx.channel.id].promote(active_piece,last_pos))
                     games[ctx.channel.id].change_turn()
                 else: await ctx.send(games[ctx.channel.id].enact_move(
@@ -366,50 +383,69 @@ async def make_move(ctx,move):
         if type(active_piece) == shogi_pieces.Fu: 
             message = games[ctx.channel.id].autopromotion_protocol(active_piece)
             if message: await ctx.send(message)
-    elif re.search("d[fgsrbFSGRB]\d\d",move):
-        dropped = False
-        for piece in games[ctx.channel.id].playermap[games[ctx.channel.id].turn].hand:
-            if move[1] == piece.graphic:
-                message = games[ctx.channel.id].drop_piece(move,piece)
-                if message == "dropped":
-                    games[ctx.channel.id].playermap[games[ctx.channel.id].turn].hand.remove(piece)
-                    dropped = True
-                    games[ctx.channel.id].change_turn()
-                    break
-                else:
-                    await ctx.send(message)
-        if not dropped: await ctx.send("You do not have a piece to drop/made an illegal drop")
-    if games[ctx.channel.id].persistent_board: await ctx.send(games[ctx.channel.id].draw_board())
-    games[ctx.channel.id].check_for_threat()
-    if games[ctx.channel.id].warn_check(): 
-        await ctx.send(games[ctx.channel.id].warn_check())
-        message = check_for_checkmate(ctx,games[ctx.channel.id])
-        if message: 
-            await ctx.send(message)
-            update_scoreboard(ctx)
-            games[ctx.channel.id].playing = False
+    #cut drop from here
+    message = turn_end(ctx,games[ctx.channel.id])
+    if message: await ctx.send(message)
+
+    
+@bot.command(name='drop',help='drop a piece on the board')
+async def drop(ctx,move):
+    try:
+        if games[ctx.channel.id].playermap[games[ctx.channel.id].turn].id != ctx.author.id:
+            await ctx.send("It isn't your turn!")
+            return None
+    except:
+        await ctx.send("There is no active game")
+    if not re.search("[fgsrbFSGRB]\d\d",move): 
+        await ctx.send("Drop moves should be made in format pXY")
+    dropped = False
+    for piece in games[ctx.channel.id].playermap[games[ctx.channel.id].turn].hand:
+        if move[0] == piece.graphic:
+            message = games[ctx.channel.id].drop_piece(move,piece)
+            if message == "dropped":
+                games[ctx.channel.id].playermap[games[ctx.channel.id].turn].hand.remove(piece)
+                dropped = True
+                games[ctx.channel.id].change_turn()
+                break
+            else:
+                await ctx.send(message)
+    if not dropped: await ctx.send("You do not have a piece to drop/made an illegal drop")
+    message = turn_end(ctx,games[ctx.channel.id])
+    if message: await ctx.send(message)
     
 @bot.command(name='show-board',help='show the board')
 async def draw_table(ctx):
-    await ctx.send(games[ctx.channel.id].draw_board())
+    try:
+        await ctx.send(games[ctx.channel.id].draw_board())
+    except:
+        await ctx.send("No active game")
+        
 @bot.command(name='persistent-board',help='Whether to print the board every move or not')
 async def persistent_board(ctx):
-    games[ctx.channel.id].persistent_board = True if not games[ctx.channel.id].persistent_board else False
-    
+    try:
+        games[ctx.channel.id].persistent_board = True if not games[ctx.channel.id].persistent_board else False
+    except:
+        await ctx.send("No active game")
 @bot.command(name='players',help='show players in the current game')
 async def show_players(ctx):
-    await ctx.send(f"Black is: {+games[ctx.channel.id].player1.who}
-                   \nWhite is: {games[ctx.channel.id].player2.who}")
+    try:
+        await ctx.send(f"Black is: {+games[ctx.channel.id].player1.who}\
+                       \nWhite is: {games[ctx.channel.id].player2.who}")
+    except:
+        await ctx.send("No active game")
 @bot.command(name='register',help='Make you a player in the game')
 async def register_player(ctx):
-    if ctx.guild == None: games[ctx.channel.id].player2.who = 'computer'
-    for player in games[ctx.channel.id].player_list:
-        if player.who == 'vacant':
-            player.who = ctx.author.display_name
-            player.id = ctx.author.id
-            await ctx.send(f"Registered as {player.team} player!")
-            return
-    await ctx.send("The game is full")
+    try:
+        if ctx.guild == None: games[ctx.channel.id].player2.who = 'computer'
+        for player in games[ctx.channel.id].player_list:
+            if player.who == 'vacant':
+                player.who = ctx.author.display_name
+                player.id = ctx.author.id
+                await ctx.send(f"Registered as {player.team} player!")
+                return
+        await ctx.send("The game is full")
+    except:
+        await ctx.send("No active game")
     
 @bot.command(name='restore',help="this function is not yet implemented")
 async def restore_game(ctx):
@@ -440,6 +476,12 @@ async def get_help(ctx):
     you can promote moving in or out.\nk - 王\ng - 金\ns - 銀  n - 成金\nb - 角  h\
     ‐ 竜馬\nr - 車  d ‐ 竜王\nf ‐ 歩  t ‐ と金")
     
+@bot.command(name="ルール")
+async def help_wrapper(ctx):
+    await get_help(ctx)
+
+#@bot.command(name='表示')
+#await draw_table(ctx)
 bot.run(shogibot_token.TOKEN)
 
 
