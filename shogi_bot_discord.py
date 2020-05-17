@@ -5,6 +5,7 @@ import shogibot_token
 import shogi_pieces
 import pickle
 
+
 class Player:
     def __init__(self,who,hand,team,id):
         self.who = who
@@ -20,9 +21,10 @@ class Player:
 class Game:
     def __init__(self,mode):
         self.mode = mode
+        self.size = self.board_size(mode)
         self.playing = 1
         self.setup(self.mode)
-        self.occupy_positions(self.mode)
+        self.occupy_positions()
         self.persistent_board = False
         
     def __repr__(self):
@@ -30,26 +32,31 @@ class Game:
     def __str__(self):
         return "A game of Shogi"
         
+    def board_size(self,mode):
+        sizes = {'mini':5}
+        return sizes[mode]
+    
     def setup(self,mode): 
+        mode_map = {'mini':list(zip([i for i in range(-1,-6,-1)],[4 for i in range(0,5)]))+[(-5,3)]}
         self.turn = 'black'
         self.player1 = Player('vacant',[],'black','')
         self.player2 = Player('vacant',[],'white','')
         self.player_list = [self.player1,self.player2]
         self.playermap = {'black':self.player1,'white':self.player2}
+        
+        self.black_fu = shogi_pieces.Fu(mode_map[mode][5],'black')
+        self.black_king = shogi_pieces.King(mode_map[mode][4],'black')
+        self.black_gold = shogi_pieces.Gold(mode_map[mode][3],'black')
+        self.black_silver = shogi_pieces.Silver(mode_map[mode][2],'black')
+        self.black_bishop = shogi_pieces.Bishop(mode_map[mode][1],'black')
+        self.black_rook = shogi_pieces.Rook(mode_map[mode][0],'black')
 
-        self.black_gold = shogi_pieces.Gold((1,4),'black')
-        self.black_silver = shogi_pieces.Silver((2,4),'black')
-        self.black_fu = shogi_pieces.Fu((0,3),'black')
-        self.black_king = shogi_pieces.King((0,4),'black')
-        self.black_rook = shogi_pieces.Rook((4,4),'black')
-        self.black_bishop = shogi_pieces.Bishop((3,4),'black')
-
-        self.white_gold = shogi_pieces.Gold((3,0),'white')
-        self.white_fu = shogi_pieces.Fu((4,1),'white')
-        self.white_king = shogi_pieces.King((4,0),'white')
-        self.white_silver = shogi_pieces.Silver((2,0),'white')
-        self.white_rook = shogi_pieces.Rook((0,0),'white')
-        self.white_bishop = shogi_pieces.Bishop((1,0),'white')
+        self.white_gold = shogi_pieces.Gold((-2,0),'white')
+        self.white_fu = shogi_pieces.Fu((-1,1),'white')
+        self.white_king = shogi_pieces.King((-1,0),'white')
+        self.white_silver = shogi_pieces.Silver((-3,0),'white')
+        self.white_rook = shogi_pieces.Rook((-5,0),'white')
+        self.white_bishop = shogi_pieces.Bishop((-4,0),'white')
 
         self.piece_list = [self.black_gold,
                            self.white_gold,
@@ -64,33 +71,25 @@ class Game:
                            self.black_rook,
                            self.black_bishop]
         
-    def occupy_positions(self,mode):
+    def occupy_positions(self):
         self.occupied_positions = []
         for piece in self.piece_list:
             self.occupied_positions.append(piece.position)
 
     def draw_board(self):
-        board = [['','','','',''],
-                 ['','','','',''],
-                 ['','','','',''],
-                 ['','','','',''],
-                 ['','','','','']]
-        to_send = ""
-        to_send += "The turn is: {}\nWhite hand: {}\n\
-        \n`{:^3} {:^3} {:^3} {:^3} {:^3}`\n".format(self.turn,
-        str(list(map(lambda a:a.graphic,self.player2.hand))),
-        '5','4','3','2','1')
+        board = [['' for i in range(0,self.size)] for i in range(0,self.size)]
+        to_send = []
+        to_send.append(f"The turn is: {self.turn}\nWhite hand: {str(list(map(lambda a:a.graphic,self.player2.hand)))}\n")
+        to_send.append(('` '+'{:^4}'*self.size+'`\n').format(*(range(self.size,0,-1))))
         for piece in self.piece_list:
-            if piece.position != (7,7): 
+            if piece.position != (-1,-1): 
                 board[piece.position[1]][piece.position[0]] = piece.graphic
-        row_content = ""
         for number, row in enumerate(board,1):
-            to_send+='`{:_^3}|{:_^3}|{:_^3}|\
-{:_^3}|{:_^3}{:^3}`'.format(*row,str(number))
-            to_send += "\n"
-        to_send+= "Black hand: {}\n".format(str(list(
-            map(lambda a:a.graphic,self.player1.hand))))
-        return to_send
+            to_send.append(('`|'+'{:_^3}|'*self.size+'{:^3}`').format(*row,str(number)))
+            to_send.append("\n")
+        to_send.append("Black hand: {}\n".format(str(list(
+            map(lambda a:a.graphic,self.player1.hand)))))
+        return ''.join(to_send)
 
 
 
@@ -110,9 +109,9 @@ class Game:
 
     def check_rules(self,piece,position,new_position):
         if tuple(map(lambda a,b:a-b,new_position, position))\
-        in piece.moves(self.occupied_positions)\
-        and False not in tuple(map(lambda a : a>=0, 
-                                   list(map(lambda a,b : b-a, new_position, (4,4))))):
+        in piece.moves(self.occupied_positions,self.size)\
+        and False not in tuple(map(lambda a : abs(a)>=0, 
+                                   list(map(lambda a,b : b-a, new_position, (self.size,self.size))))):
             for other_piece in self.piece_list:
                 if other_piece.position == new_position\
                 and other_piece.team == piece.team\
@@ -160,7 +159,7 @@ class Game:
             if other_piece.position == piece.position:
                 if other_piece != piece:
                     to_send+="Piece taken!\n"
-                    other_piece.position = (7,7)
+                    other_piece.position = (-1,-1)
                     other_piece.team = piece.team
                     other_piece.isPromtoed = False
                     other_piece.set_graphic()
@@ -172,8 +171,8 @@ class Game:
 
 
     def drop_piece(self,move,active_piece):
-        shuffle = [4,3,2,1,0]
-        horizontal = shuffle[int(move[2])-1]
+        shuffle = range(self.size,0,-1)
+        horizontal = -int(move[2])
         vertical = int(move[3])-1
         for piece in self.piece_list:
             if piece.position == (horizontal,vertical):
@@ -211,10 +210,10 @@ class Game:
                     if tuple(map(lambda a,b:a-b,
                                  (horizontal,vertical),
                                  piece.position))\
-                    in piece.moves(self.occupied_positions):
+                    in piece.moves(self.occupied_positions,self.size):
                         return piece
         elif len(move) == 5 or len(move) == 6:
-            shuffle = [4,3,2,1,0]
+            shuffle = range(self.size,0,-1)
             current_x = int(move[1])-1
             current_y = int(move[2])-1
             for piece in self.piece_list:
@@ -225,7 +224,7 @@ class Game:
         self.player1.threat = False
         self.player2.threat = False
         for piece in self.piece_list:
-            for move in piece.moves(self.occupied_positions):
+            for move in piece.moves(self.occupied_positions,self.size):
                 if piece.team == "black"\
                 and self.white_king.position == tuple(map(lambda a,b:a+b,
                                                           piece.position,move)):
@@ -259,10 +258,10 @@ def check_for_checkmate(ctx,game):
     save_state = pickle.dumps(game)
     print(f'the game turn is {game.turn}')
     for piece in game.piece_list:
-        if piece.team == game.turn and piece.position != (7,7):
+        if piece.team == game.turn and piece.position != (-1,-1):
             print(f'the now piece is {piece.team}')
             print(piece)
-            for move in piece.moves(game.occupied_positions):
+            for move in piece.moves(game.occupied_positions,self.size):
                 print(f'the move to check is {move}')
                 if not game.enact_move(piece,tuple(map(lambda a,b:a+b,
                                                        piece.position,
@@ -315,8 +314,11 @@ async def on_ready():
     #status=discord.Status.idle
 
 @bot.command(name='new-game',help='make a game')
-async def initialise(ctx,game_type = 'mini'):
-    games[ctx.channel.id] = Game(game_type)
+async def initialise(ctx,mode = 'mini'):
+    if mode not in ['mini']:
+        await ctx.send("Game mode unavailable!")
+        return False
+    games[ctx.channel.id] = Game(mode)
     await ctx.send(games[ctx.channel.id].draw_board())
     
 def turn_end(ctx,game):
@@ -349,12 +351,12 @@ async def make_move(ctx,move):
     games[ctx.channel.id].check_for_threat()
     games[ctx.channel.id].occupy_positions()
     if re.search("^[fkgsbrFKGSBRnNtTdDhH](\d\d|\d\d\d\d)p?$",move):
-        shuffle = [4,3,2,1,0]
+        shuffle = range(games[ctx.channel.id].size,0,-1)
         if len(move) <= 4:
-            horizontal = shuffle[int(move[1])-1]
+            horizontal = -int(move[1])
             vertical = int(move[2])-1
         elif len(move) >= 5:
-            horizontal = shuffle[int(move[3])-1]
+            horizontal = -int(move[3])
             vertical = int(move[4])-1        
         active_piece = games[ctx.channel.id].get_piece(move,
                                                        horizontal,
